@@ -1,4 +1,4 @@
-# BitTorrent Client
+# PeerLink
 
 A minimal BitTorrent client written in Python. Downloads single-file torrents sequentially from an HTTP tracker using the core BitTorrent wire protocol.
 
