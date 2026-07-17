@@ -26,6 +26,16 @@ Built as a learning project to understand the internals of BitTorrent — from b
 └── exceptions.py      # Custom exception types
 ```
 
+## Desktop UI (PySide6)
+
+A modern desktop UI built with **PySide6 (Qt)** provides a clean, dark‑themed interface similar to qBittorrent. It includes:
+- Toolbar with start, pause, stop, and magnet‑link actions
+- Torrent details panel with info‑hash, tracker, and status
+- Progress view with speed, ETA, and piece map
+- Peer table and activity log
+- Dark theme with rounded cards and modern typography
+
+
 ## Requirements
 
 - Python 3.8+

@@ -1,76 +1,81 @@
 """
-BitTorrent client — entry point.
+main.py — PeerLink application entry point.
 
-Downloads a single-file torrent sequentially: parses the .torrent,
-contacts the tracker, connects to the first available peer, and
-writes verified pieces to disk.
+Launches the PySide6 desktop UI.
+
+Original CLI usage is preserved below as a comment for reference:
+
+    # from torrent import Torrent
+    # from tracker import Tracker
+    # from piecemanager import PieceManager
+    #
+    # def download(torrent_path, output_path):
+    #     torrent = Torrent(torrent_path)
+    #     tracker = Tracker(torrent)
+    #     peers   = tracker.get_peers()
+    #     peer    = peers[0]
+    #     peer.handshake(torrent.info_hash, tracker.peer_id)
+    #     _, _ = peer.recv_message()   # bitfield
+    #     peer.send_interested()
+    #     _, _ = peer.recv_message()   # unchoke
+    #     pm = PieceManager(torrent)
+    #     with open(output_path, "wb") as f:
+    #         for i in range(pm.num_pieces):
+    #             f.write(pm.download_piece(peer, i))
+    #
+    # if __name__ == "__main__":
+    #     import sys, logging
+    #     logging.basicConfig(level=logging.INFO)
+    #     download(sys.argv[1], sys.argv[2] if len(sys.argv) >= 3 else "test_output.bin")
 """
 
-import logging
 import sys
+import os
 
-from torrent import Torrent
-from tracker import Tracker
-from piecemanager import PieceManager
+# ---------------------------------------------------------------------------
+# Ensure the project root is always on sys.path regardless of working dir.
+# ---------------------------------------------------------------------------
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
 
-logger = logging.getLogger(__name__)
+from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt
+
+from ui.main_window import MainWindow
 
 
-def download(torrent_path, output_path):
-    """Run the full download pipeline for a single torrent.
+def _load_stylesheet(app: QApplication) -> None:
+    """Apply the global dark theme QSS file."""
+    qss_path = os.path.join(_HERE, "resources", "styles", "dark_theme.qss")
+    if os.path.exists(qss_path):
+        with open(qss_path, "r", encoding="utf-8") as f:
+            app.setStyleSheet(f.read())
 
-    1. Parse the .torrent file.
-    2. Announce to the tracker and pick the first peer.
-    3. Handshake → bitfield → interested → unchoke.
-    4. Download every piece sequentially, verify SHA-1, write to disk.
-    """
-    torrent = Torrent(torrent_path)
-    tracker = Tracker(torrent)
-    peers = tracker.get_peers()
-    peer = peers[0]
 
-    peer.handshake(torrent.info_hash, tracker.peer_id)
+def main() -> int:
+    # High-DPI support (Qt 6 handles this automatically, but be explicit)
+    QApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
 
-    msg_id, payload = peer.recv_message()  # bitfield
-    logger.info("Received message id=%s (bitfield)", msg_id)
+    app = QApplication(sys.argv)
+    app.setApplicationName("PeerLink")
+    app.setApplicationVersion("1.0.0")
+    app.setOrganizationName("PeerLink")
 
-    peer.send_interested()
+    # Base font
+    font = QFont("Segoe UI", 10)
+    app.setFont(font)
 
-    msg_id, payload = peer.recv_message()  # unchoke
-    logger.info("Received message id=%s (unchoke)", msg_id)
+    _load_stylesheet(app)
 
-    logger.info("Piece length: %d", torrent.piece_length)
-    logger.info("Total pieces: %d", torrent.total_pieces)
+    window = MainWindow()
+    window.show()
 
-    pm = PieceManager(torrent)
-
-    with open(output_path, "wb") as f:
-        for piece_index in range(pm.num_pieces):
-            piece_data = pm.download_piece(peer, piece_index)
-            f.write(piece_data)
-
-            percent = (piece_index + 1) / pm.num_pieces * 100
-            logger.info(
-                "[%d/%d] %.2f%%",
-                piece_index + 1,
-                pm.num_pieces,
-                percent,
-            )
-
-    logger.info("Download complete: %s", output_path)
+    return app.exec()
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
-    )
-
-    if len(sys.argv) < 2:
-        print(f"Usage: python {sys.argv[0]} <torrent-file> [output-file]")
-        sys.exit(1)
-
-    torrent_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) >= 3 else "test_output.bin"
-
-    download(torrent_file, output_file)
+    sys.exit(main())
